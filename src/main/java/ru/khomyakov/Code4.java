@@ -1,26 +1,33 @@
 package ru.khomyakov;
 
+import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.glu.GLU;
+import com.jogamp.opengl.util.FPSAnimator;
 
 import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
+import java.nio.FloatBuffer;
 import java.util.Scanner;
 import java.util.Vector;
 
 import static com.jogamp.opengl.GL2ES2.*;
+import static com.jogamp.opengl.GL2ES3.GL_COLOR;
 
-public class Code3 extends JFrame implements GLEventListener {
+public class Code4 extends JFrame implements GLEventListener {
     private GLCanvas myCanvas;
     private int rendering_program;
     private int[] vao = new int[1];
+    private float x = 0.0f;
+    private float inc = 0.01f;
 
-    public Code3() {
+
+    public Code4() {
         setTitle("Chapter2 - program5");
         setSize(600, 400);
         setLocation(200, 200);
@@ -28,10 +35,12 @@ public class Code3 extends JFrame implements GLEventListener {
         myCanvas.addGLEventListener(this);
         this.add(myCanvas);
         setVisible(true);
+        FPSAnimator animator = new FPSAnimator(myCanvas, 50);
+        animator.start();
     }
 
     public static void main(String[] args) {
-        new Code3();
+        new Code4();
     }
 
 
@@ -40,6 +49,17 @@ public class Code3 extends JFrame implements GLEventListener {
     public void display(GLAutoDrawable glAutoDrawable) {
         GL4 gl = (GL4) GLContext.getCurrentGL();
         gl.glUseProgram(rendering_program);
+
+        float[] bkg = {0.0f, 0.0f, 0.0f, 1.0f};
+        FloatBuffer bkgBuffer = Buffers.newDirectFloatBuffer(bkg);
+        gl.glClearBufferfv(GL_COLOR, 0, bkgBuffer);
+
+        x += inc;
+        if (x > 1.0f) inc = -0.01f;
+        if (x < -1.0f) inc = 0.01f;
+        int offset_loc = gl.glGetUniformLocation(rendering_program, "offset");
+        gl.glProgramUniform1f(rendering_program, offset_loc, x);
+
         gl.glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
