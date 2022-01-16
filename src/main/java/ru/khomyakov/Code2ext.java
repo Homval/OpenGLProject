@@ -54,7 +54,7 @@ public class Code2ext extends JFrame implements GLEventListener {
 
         x += inc;
         if (x < 1) inc = 1.0f;
-        if (x > 30) inc = -1.0f;
+        if (x > 80) inc = -1.0f;
         gl.glPointSize(x);
         gl.glDrawArrays(GL_POINTS, 0, 1);
     }

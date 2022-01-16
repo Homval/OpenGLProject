@@ -61,7 +61,7 @@ public class Code3 extends JFrame implements GLEventListener {
         int[] fragCompiled = new int[1];
         int[] linked = new int[1];
 
-        String[] vShaderSource = readShaderSource("src/main/resources/vert.shader");
+        String[] vShaderSource = readShaderSource("src/main/resources/vert2.shader");
 
         String[] fShaderSource = readShaderSource("src/main/resources/frag.shader");
 
