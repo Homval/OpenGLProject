@@ -7,6 +7,7 @@ import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.glu.GLU;
+import com.jogamp.opengl.util.FPSAnimator;
 import graphicslib3D.GLSLUtils;
 import graphicslib3D.Matrix3D;
 
@@ -18,6 +19,7 @@ import java.util.Scanner;
 import java.util.Vector;
 
 import static com.jogamp.opengl.GL2ES2.*;
+import static com.jogamp.opengl.GL2ES3.GL_COLOR;
 
 public class Code5 extends JFrame implements GLEventListener {
     private GLCanvas myCanvas;
@@ -36,6 +38,8 @@ public class Code5 extends JFrame implements GLEventListener {
         myCanvas.addGLEventListener(this);
         this.add(myCanvas);
         setVisible(true);
+        FPSAnimator animator = new FPSAnimator(myCanvas, 50);
+        animator.start();
     }
 
     public static void main(String[] args) {
@@ -48,6 +52,10 @@ public class Code5 extends JFrame implements GLEventListener {
     public void display(GLAutoDrawable glAutoDrawable) {
         GL4 gl = (GL4) GLContext.getCurrentGL();
         gl.glClear(GL_DEPTH_BUFFER_BIT);
+        float[] bkg = {0.0f, 0.0f, 0.0f, 1.0f};
+        FloatBuffer bkgBuffer = Buffers.newDirectFloatBuffer(bkg);
+        gl.glClearBufferfv(GL_COLOR, 0, bkgBuffer);
+
         gl.glUseProgram(rendering_program);
 
         //build view matrix
@@ -55,7 +63,11 @@ public class Code5 extends JFrame implements GLEventListener {
         vMat.translate(-cameraX, -cameraY, -cameraZ);
         //build model matrix
         Matrix3D mMat = new Matrix3D();
-        mMat.translate(cubeLocX, cubeLocY, cubeLocZ);
+        // use system time to generate slowly-increasing sequence of floating-point values
+        double t = (double)(System.currentTimeMillis()) / 10000.0;
+        mMat.translate(Math.sin(2 * t) * 2.0, Math.sin(3 * t) * 2.0, Math.sin(4 * t) * 2.0);
+        mMat.rotate(1000 * t, 1000 * t, 1000 * t);
+//        mMat.translate(cubeLocX, cubeLocY, cubeLocZ);
         // concatenate view and model matrix to create vm matrix
         Matrix3D mvMat = new Matrix3D();
         mvMat.concatenate(vMat);
@@ -119,7 +131,7 @@ public class Code5 extends JFrame implements GLEventListener {
         gl.glGenBuffers(vbo.length, vbo, 0);
         gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
         FloatBuffer vertBuff = Buffers.newDirectFloatBuffer(vertex_positions);
-        gl.glBufferData(GL_ARRAY_BUFFER, vertBuff.limit() * 4, vertBuff, GL_STATIC_DRAW);
+        gl.glBufferData(GL_ARRAY_BUFFER, vertBuff.limit() * 4L, vertBuff, GL_STATIC_DRAW);
     }
 
     private int createShaderProgram() {
