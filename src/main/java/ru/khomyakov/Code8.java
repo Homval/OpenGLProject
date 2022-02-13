@@ -10,6 +10,7 @@ import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 import graphicslib3D.GLSLUtils;
 import graphicslib3D.Matrix3D;
+import graphicslib3D.MatrixStack;
 
 import javax.swing.*;
 import java.io.File;
@@ -21,19 +22,20 @@ import java.util.Vector;
 import static com.jogamp.opengl.GL2ES2.*;
 import static com.jogamp.opengl.GL2ES3.GL_COLOR;
 
-public class Code5instancing extends JFrame implements GLEventListener {
+public class Code8 extends JFrame implements GLEventListener {
     private GLCanvas myCanvas;
     private int rendering_program;
     private int[] vao = new int[1];
     private int[] vbo = new int[2];
     private float cameraX, cameraY, cameraZ;
     private float cubeLocX, cubeLocY, cubeLocZ;
+    private float pyrLocX, pyrLocY, pyrLocZ;
     private GLSLUtils utils = new GLSLUtils();
     private Matrix3D pMat;
 
-    public Code5instancing() {
-        setTitle("Chapter4 - program2");
-        setSize(800, 800);
+    public Code8() {
+        setTitle("Chapter4 - program4");
+        setSize(1200, 1200);
         myCanvas = new GLCanvas();
         myCanvas.addGLEventListener(this);
         this.add(myCanvas);
@@ -43,7 +45,7 @@ public class Code5instancing extends JFrame implements GLEventListener {
     }
 
     public static void main(String[] args) {
-        new Code5instancing();
+        new Code8();
     }
 
 
@@ -58,25 +60,42 @@ public class Code5instancing extends JFrame implements GLEventListener {
 
         gl.glUseProgram(rendering_program);
 
-        //build view matrix
-        Matrix3D vMat = new Matrix3D();
-        vMat.translate(-cameraX, -cameraY, -cameraZ);
-        //build model matrix
-        Matrix3D mMat = new Matrix3D();
-        // use system time to generate slowly-increasing sequence of floating-point values
-        double timeFactor = (double)(System.currentTimeMillis() % 360000) / 10000.0;
+        MatrixStack mvStack = new MatrixStack(20);
+        //build view matrix in stack
+        mvStack.pushMatrix();
+
+        double amt = (double) (System.currentTimeMillis()) / 1000.0;
+        //build model matrix of pyramid
+        mvStack.pushMatrix();
+        mvStack.translate(pyrLocX, pyrLocY, pyrLocZ);
+        mvStack.pushMatrix();
+        mvStack.rotate((System.currentTimeMillis()) / 10.0, 1.0, 0.0, 0.0);
 
         // copy vm and perspective matrices to uniform variables
-        int m_loc = gl.glGetUniformLocation(rendering_program, "m_matrix");
-        int v_loc = gl.glGetUniformLocation(rendering_program, "v_matrix");
-
+        int mv_loc = gl.glGetUniformLocation(rendering_program, "mv_matrix");
         int proj_loc = gl.glGetUniformLocation(rendering_program, "proj_matrix");
         gl.glUniformMatrix4fv(proj_loc, 1, false, pMat.getFloatValues(), 0);
-        gl.glUniformMatrix4fv(m_loc, 1, false, mMat.getFloatValues(), 0);
-        gl.glUniformMatrix4fv(v_loc, 1, false, vMat.getFloatValues(), 0);
+        gl.glUniformMatrix4fv(mv_loc, 1, false, mvStack.peek().getFloatValues(), 0);
 
-        int tf_loc = gl.glGetUniformLocation(rendering_program, "tf");
-        gl.glUniform1f(tf_loc, (float) timeFactor);
+        //associate VBO with the corresponding vertex attribute in the vertex shader
+        gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+        gl.glEnableVertexAttribArray(0);
+
+        //adjust OpenGL settings and draw model
+        gl.glEnable(GL_DEPTH_TEST);
+        gl.glDepthFunc(GL_LEQUAL);
+        gl.glDrawArrays(GL_TRIANGLES, 0, 18);
+        mvStack.popMatrix();
+
+        //build cube matrix
+        mvStack.pushMatrix();
+        mvStack.translate(Math.sin(amt) * 4.0f, 0.0f, Math.cos(amt) * 4.0f);
+        mvStack.pushMatrix();
+        mvStack.rotate((System.currentTimeMillis()) / 10.0, 0.0, 1.0, 0.0);
+
+        gl.glUniformMatrix4fv(proj_loc, 1, false, pMat.getFloatValues(), 0); // repeated
+        gl.glUniformMatrix4fv(mv_loc, 1, false, mvStack.peek().getFloatValues(), 0);
 
         //associate VBO with the corresponding vertex attribute in the vertex shader
         gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
@@ -86,7 +105,24 @@ public class Code5instancing extends JFrame implements GLEventListener {
         //adjust OpenGL settings and draw model
         gl.glEnable(GL_DEPTH_TEST);
         gl.glDepthFunc(GL_LEQUAL);
-        gl.glDrawArraysInstanced(GL_TRIANGLES, 0, 36, 24);
+        gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+        mvStack.popMatrix();
+
+        mvStack.pushMatrix();
+        mvStack.translate(0.0f, Math.sin(amt) * 2.0f, Math.cos(amt) * 2.0f);
+        mvStack.rotate((System.currentTimeMillis()) / 10.0, 0.0, 0.0, 1.0);
+        mvStack.scale(0.25, 0.25, 0.25);
+
+        gl.glUniformMatrix4fv(mv_loc, 1, false, mvStack.peek().getFloatValues(), 0);
+        gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+        gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+        gl.glEnableVertexAttribArray(0);
+        gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        mvStack.popMatrix();
+        mvStack.popMatrix();
+        mvStack.popMatrix();
+        mvStack.popMatrix();
     }
 
     @Override
@@ -98,20 +134,23 @@ public class Code5instancing extends JFrame implements GLEventListener {
         rendering_program = createShaderProgram();
         setupVertices();
         cameraX = 0.0f;
-        cameraY = 0.0f;
-        cameraZ = 25.0f;
+        cameraY = 5.0f;
+        cameraZ = 18.0f;
         cubeLocX = 0.0f;
-        cubeLocY = -2.0f;
-        cubeLocZ = 0.0f;
+        cubeLocY = 2.0f;
+        cubeLocZ = -8.0f;
+        pyrLocX = 0.0f;
+        pyrLocY = 0.0f;
+        pyrLocZ = -8.0f;
         //create perspective matrix, this one has fovy = 60.0f and aspect ratio matches screen window
         float aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-        pMat = perspective(60.0f, aspect, 0.1f, 10000.0f);
+        pMat = perspective(60.0f, aspect, 0.1f, 1000.0f);
     }
 
     private void setupVertices() {
         GL4 gl = (GL4) GLContext.getCurrentGL();
         // 36 vertices of the 12 triangles making up a 2 x 2 x 2 cube centered at the origin
-        float[ ] vertex_positions =
+        float[] cube_positions =
                 { -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f,
                         -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f,
                         1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
@@ -125,12 +164,24 @@ public class Code5instancing extends JFrame implements GLEventListener {
                         -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                         1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f
                 };
+
+        float[] pyramid_position = {
+                -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+                1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+                -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f,
+                1.0f, -1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f
+        };
         gl.glGenVertexArrays(vao.length, vao, 0);
         gl.glBindVertexArray(vao[0]);
         gl.glGenBuffers(vbo.length, vbo, 0);
         gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-        FloatBuffer vertBuff = Buffers.newDirectFloatBuffer(vertex_positions);
-        gl.glBufferData(GL_ARRAY_BUFFER, vertBuff.limit() * 4L, vertBuff, GL_STATIC_DRAW);
+        FloatBuffer cubeBuff = Buffers.newDirectFloatBuffer(cube_positions);
+        gl.glBufferData(GL_ARRAY_BUFFER, cubeBuff.limit() * 4L, cubeBuff, GL_STATIC_DRAW);
+        gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        FloatBuffer pyrBuff = Buffers.newDirectFloatBuffer(pyramid_position);
+        gl.glBufferData(GL_ARRAY_BUFFER, pyrBuff.limit() * 4L, pyrBuff, GL_STATIC_DRAW);
     }
 
     private int createShaderProgram() {
@@ -139,7 +190,7 @@ public class Code5instancing extends JFrame implements GLEventListener {
         int[] fragCompiled = new int[1];
         int[] linked = new int[1];
 
-        String[] vShaderSource = readShaderSource("src/main/resources/vert5instancing.shader");
+        String[] vShaderSource = readShaderSource("src/main/resources/vert5.shader");
 
         String[] fShaderSource = readShaderSource("src/main/resources/frag5.shader");
 
